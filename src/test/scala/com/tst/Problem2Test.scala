@@ -3,7 +3,6 @@ package com.tst
 import com.tst.CombinableCodes.{allCombinablePromotions, combinablePromotions, promotions, removeContainedSets}
 import org.scalatest.matchers.must.Matchers.contain
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
-
 import scala.language.postfixOps
 
 class Problem2Test extends org.scalatest.funsuite.AnyFunSuite {
@@ -48,6 +47,44 @@ class Problem2Test extends org.scalatest.funsuite.AnyFunSuite {
       List(
         PromotionCombo(List("P1", "P4", "P5")),
         PromotionCombo(List("P1", "P2")))
+  }
+
+  test("test the case with no exclusions") {
+    val promotionsWithoutExclusions = Seq(
+      Promotion("P1", Seq.empty),
+      Promotion("P2", Seq.empty),
+      Promotion("P3", Seq.empty),
+      Promotion("P4", Seq.empty))
+
+    val subsets = allCombinablePromotions(promotionsWithoutExclusions)
+
+    subsets should contain theSameElementsAs List(PromotionCombo(List("P1", "P2", "P3", "P4")))
+  }
+
+  test("test the case with all exclusions") {
+    val promotionsWithoutExclusions = Seq(
+      Promotion("P1", Seq("P1", "P2", "P3", "P4")),
+      Promotion("P2", Seq("P1", "P2", "P3", "P4")),
+      Promotion("P3", Seq("P1", "P2", "P3", "P4")),
+      Promotion("P4", Seq("P1", "P2", "P3", "P4")))
+
+    val subsets = allCombinablePromotions(promotionsWithoutExclusions)
+
+    //no combinations
+    subsets should contain theSameElementsAs List.empty
+  }
+
+  test("test the case with two disjoint sets") {
+    val promotionsWithoutExclusions = Seq(
+      Promotion("P1", Seq("P3", "P4")),
+      Promotion("P2", Seq("P3", "P4")),
+      Promotion("P3", Seq("P1", "P2")),
+      Promotion("P4", Seq("P1", "P2")))
+
+    val subsets = allCombinablePromotions(promotionsWithoutExclusions)
+
+    //no combinations
+    subsets should contain theSameElementsAs List(PromotionCombo(List("P1", "P2")), PromotionCombo(List("P3", "P4")))
   }
 
 }

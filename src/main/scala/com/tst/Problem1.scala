@@ -15,19 +15,16 @@ case class BestGroupPrice(cabinCode: String,
                           rateGroup: String)
 
 object BestGroupPrice {
-  def apply(rate: Map[String, String], cabinPrice: CabinPrice): Option[BestGroupPrice] = {
-    val rateGroup: Option[String] = rate.get(cabinPrice.rateCode)
-    rateGroup match {
-      case None =>
-        println(s"There is no group for code ${cabinPrice.rateCode}")
-        None
-      case Some(rate) =>
-        Some(BestGroupPrice(
-          cabinCode = cabinPrice.cabinCode,
-          rateCode = cabinPrice.rateCode,
-          price = cabinPrice.price,
-          rateGroup = rate))
-    }
+  // construct a BestGroupPrice option from a cabin price and a rate map.
+  // if the rate doesn't exist, use "None" -- at first i returned a None and used
+  // flatmap later, but i think you *would* want to show the codes on the user interface,
+  // so i changed that
+  def apply(rate: Map[String, String], cabinPrice: CabinPrice): BestGroupPrice = {
+    BestGroupPrice(
+      cabinCode = cabinPrice.cabinCode,
+      rateCode = cabinPrice.rateCode,
+      price = cabinPrice.price,
+      rateGroup = rate.get(cabinPrice.rateCode).getOrElse("None"))
   }
 }
 
@@ -51,27 +48,30 @@ object FindBestGroupRate {
     CabinPrice("CB", "S2", 270.00)
   )
 
-  def getBestGroupPrice(groupprices: Seq[BestGroupPrice]): BestGroupPrice = {
-    groupprices.sortBy(_.price).head
+  def getBestGroupPrice(groupPrices: Seq[BestGroupPrice]): BestGroupPrice = {
+    groupPrices.minBy(_.price) //at first i sorted and took the head, this is obviously better
   }
 
   def getBestGroupPrices(rates: Seq[Rate],
                          prices: Seq[CabinPrice]): Seq[BestGroupPrice] = {
 
-    val rateCodeToGroup: Map[String, String] = rates.map(r => r.rateCode -> r.rateGroup).toMap
+    //it simplifies the code to have this as a map, and helps eliminate worst cases of N^2 times
+    val rateCodeToGroup: Map[String, String] = rates.map(rate => rate.rateCode -> rate.rateGroup).toMap
 
-    val groupPrices: Seq[BestGroupPrice] = prices.flatMap(cp => BestGroupPrice(rateCodeToGroup, cp))
+    //create the group prices
+    val groupPrices: Seq[BestGroupPrice] = prices.map(cabinPrice => BestGroupPrice(rateCodeToGroup, cabinPrice))
 
+    //group the prices by rateGroup and cabinCode, then choose the lowest groupPrice from each of those 
     val bestGroupPrices =
-      groupPrices.groupBy(bgp => Seq(bgp.rateGroup, bgp.cabinCode)).values.map(getBestGroupPrice)
+      groupPrices.groupBy(bestGroupPrice => Seq(bestGroupPrice.rateGroup, bestGroupPrice.cabinCode)).values.map(getBestGroupPrice)
 
-    //sort of the order shown, cabin code major sort, rate code minor.  Will help agents find the codes quickly.
-    //Since scala's sort is stable you cna sort by the minor field, then the major,
+    //sort to the order shown in sample data, cabin code major sort, rate code minor.  Will help agents find the codes quickly.
+    //Since scala's sort is stable you can sort by the minor field, then the major,
     bestGroupPrices.toSeq.sortBy(_.rateCode).sortBy(_.cabinCode)
   }
 
-  def main( args: Array[String]):Unit = {
-    for( rate <- FindBestGroupRate.getBestGroupPrices(rates, cabinPrices)) {
+  def main(args: Array[String]): Unit = {
+    for (rate <- FindBestGroupRate.getBestGroupPrices(rates, cabinPrices)) {
       println(rate)
     }
   }

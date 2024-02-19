@@ -14,8 +14,8 @@ case class PromotionCombo(promotionCodes: Seq[String]) {
 object PromotionCombo {
   // Define an ordering for PromotionCombo, as the output specified is in sorted order
   // we can simplify a bit, for example, We don't need to choose how to sort (a,b) before or
-  // after (a,b,c) becauee accordingto the rules, (a,b) would be subsumed by (a,b,c) as the size
-  // 3 group containes the size 2 group. So we can zip and compare pairs
+  // after (a,b,c) because according to the rules, (a,b) would be subsumed by (a,b,c) as the size
+  // 3 group contains the size 2 group. So we can zip and compare pairs
   implicit val ordering: Ordering[PromotionCombo] = new Ordering[PromotionCombo] {
     override def compare(x: PromotionCombo, y: PromotionCombo): Int = {
       val pairs = x.promotionCodes.zip(y.promotionCodes)
@@ -46,6 +46,8 @@ object PromotionCombo {
  * This algo's complexity would be O(n) of the resulting combinable groups except for the subset removal
  * which is N^2, so the overall complexity is (combinable groups)^2 which is a lot less than N! . The
  * algo makes 1 or 2 recursions per element, but the search space is pruned when the dual recursion happens.
+ * The worst case for DFS ( a lot of elements with few or no exclusions ) is the best case here: only one
+ * recursive call per element.
  *
  * I also note that the supplied exclusion rules are bidirectional, so if a excludes b, b also excludes a.
  * If this isn't an invariant, we'd need to produce the inverse exclusions and add that to the exclusion set,
@@ -88,8 +90,8 @@ object CombinableCodes {
           val combinedBranches =
             recursiveHelper(filtered, acc + head) ++
               (if (filtered.size != tail.size) recursiveHelper(tail, acc) else Set.empty)
-                 // ^^ if the current decision element doesn't exclude any of the remaining elements,
-                 // no need to recurse down the "without a head" element
+          // ^^ if the current decision element doesn't exclude any of the remaining elements,
+          // no need to recurse down the "without a head" element
           removeContainedSets(combinedBranches)
       }
     }
@@ -100,19 +102,22 @@ object CombinableCodes {
       .sorted
   }
 
+  // The promotions that can be combined with a specific promotion.
+  // You can simply apply the exclusion rule of the specified promotion to the entire set, and
+  // compute all promo combos for that with the preceding function.  Simple, and much more efficient
+  // than computing all sets and filtering out all ones that do not contain the specified element
+  def combinablePromotions(promotionCode: String,
+                           allPromotions: Seq[Promotion]): Seq[PromotionCombo] = {
 
-  def combinablePromotions(
-                            promotionCode: String,
-                            allPromotions: Seq[Promotion]): Seq[PromotionCombo] = {
-    val promotions = allPromotions.find(_.code == promotionCode) match {
-      case None => allCombinablePromotions(allPromotions) // code isn't in there, just return all promotions
-      case Some(promo) =>
-        val exclusions = promo.notCombinableWith.toSet
-        val filtered = allPromotions.filterNot(promo => exclusions.contains(promo.code))
-        allCombinablePromotions(filtered)
+    val exclusions: Set[String] = allPromotions.find(_.code == promotionCode) match {
+      case None => Set.empty
+      case Some(promotion) => promotion.notCombinableWith.toSet
     }
 
-    promotions.map(_.movePromotionCodeToHead(promotionCode))
+    val filtered = allPromotions.filterNot(promo => exclusions.contains(promo.code))
+    val combinedPromotions = allCombinablePromotions(filtered)
+
+    combinedPromotions.map(_.movePromotionCodeToHead(promotionCode))
   }
 
   def main(args: Array[String]): Unit = {
