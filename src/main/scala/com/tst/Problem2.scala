@@ -19,7 +19,7 @@ object PromotionCombo {
   implicit val ordering: Ordering[PromotionCombo] = new Ordering[PromotionCombo] {
     override def compare(x: PromotionCombo, y: PromotionCombo): Int = {
       val pairs = x.promotionCodes.zip(y.promotionCodes)
-      for ((s1,s2) <- pairs) {
+      for ((s1, s2) <- pairs) {
         val cmp = s1.compareTo(s2)
         if (cmp != 0) return cmp
       }
@@ -82,16 +82,15 @@ object CombinableCodes {
     def recursiveHelper(searchSpace: Seq[String], acc: Set[String]): Set[Set[String]] = {
       searchSpace match {
         case Seq() => if (acc.size > 1) Set(acc) else Set.empty
-        case first :: rest =>
-          //need to fix ths, we need to see if the remaining has any exclusions, there is always a rule, even if empty
-          exclusionRules.get(first) match {
-            case None => recursiveHelper(rest, acc + first) //we need to
-            case Some(exclusions) =>
-              val combinedBranches =
-                recursiveHelper(rest.filterNot(exclusions.contains), acc + first) ++
-                  recursiveHelper(rest, acc)
-              removeContainedSets(combinedBranches)
-          }
+        case head :: tail =>
+          val rule: Set[String] = exclusionRules.getOrElse(head, Set.empty) // should never be empty
+          val filtered: Seq[String] = tail.filterNot(rule.contains(_))
+          val combinedBranches =
+            recursiveHelper(filtered, acc + head) ++
+              (if (filtered.size != tail.size) recursiveHelper(tail, acc) else Set.empty)
+                 // ^^ if the current decision element doesn't exclude any of the remaining elements,
+                 // no need to recurse down the "without a head" element
+          removeContainedSets(combinedBranches)
       }
     }
 
@@ -118,7 +117,7 @@ object CombinableCodes {
 
   def main(args: Array[String]): Unit = {
 
-    def show(promotionCombos: Seq[PromotionCombo]):Unit = {
+    def show(promotionCombos: Seq[PromotionCombo]): Unit = {
       for (promotionCombo <- promotionCombos) {
         println(promotionCombo)
       }
@@ -127,7 +126,7 @@ object CombinableCodes {
     println("all combinable promotions:")
     show(allCombinablePromotions(promotions))
 
-    def showForCode(code:String) = {
+    def showForCode(code: String) = {
       println()
       println(s"combinable promotions for $code:")
       show(combinablePromotions(code, promotions))
