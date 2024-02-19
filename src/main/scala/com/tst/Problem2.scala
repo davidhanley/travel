@@ -2,7 +2,32 @@ package com.tst
 
 case class Promotion(code: String, notCombinableWith: Seq[String])
 
-case class PromotionCombo(promotionCodes: Seq[String])
+case class PromotionCombo(promotionCodes: Seq[String]) {
+
+  //When we look for combinable codes containing a specific code, we list the
+  //searched for code first, and this method acomplishes that
+  def movePromotionCodeToHead(element: String): PromotionCombo = {
+    PromotionCombo(Seq(element) ++ promotionCodes.filterNot(_ == element))
+  }
+}
+
+object PromotionCombo {
+  // Define an ordering for PromotionCombo, as the output specified is in sorted order
+  // we can simplify a bit, for example, We don't need to choose how to sort (a,b) before or
+  // after (a,b,c) becauee accordingto the rules, (a,b) would be subsumed by (a,b,c) as the size
+  // 3 group containes the size 2 group. So we can zip and compare pairs
+  implicit val ordering: Ordering[PromotionCombo] = new Ordering[PromotionCombo] {
+    override def compare(x: PromotionCombo, y: PromotionCombo): Int = {
+      val pairs = x.promotionCodes.zip(y.promotionCodes)
+      for ((s1,s2) <- pairs) {
+        val cmp = s1.compareTo(s2)
+        if (cmp != 0) return cmp
+      }
+      // If all elements are equal, return 0, but this should not happen
+      0
+    }
+  }
+}
 
 /**
  * Find promotions codes that can be used together.  There are rules preventing some codes from being
@@ -45,13 +70,15 @@ object CombinableCodes {
 
   def allCombinablePromotions(allPromotions: Seq[Promotion]): Seq[PromotionCombo] = {
 
-    //the exclusion rules are more elegant as a map, so let's make them into one
+    //the exclusion rules are faster and less code to access as a map, so let's make them into one
     val exclusionRules: Map[String, Set[String]] =
       allPromotions.map(p => p.code -> p.notCombinableWith.toSet).toMap
 
     //by changing the search space to just strings, we can use set.contains to prune the search space as we recurse
     val searchSpace = exclusionRules.keys.toSeq
 
+    //recursively break sets into head::tail or ::tail, produce groups, then combine the results and filter
+    //out the smaller sets.
     def recursiveHelper(searchSpace: Seq[String], acc: Set[String]): Set[Set[String]] = {
       searchSpace match {
         case Seq() => if (acc.size > 1) Set(acc) else Set.empty
@@ -71,19 +98,22 @@ object CombinableCodes {
     recursiveHelper(searchSpace, Set.empty)
       .toSeq
       .map(s => PromotionCombo(s.toSeq.sorted))
+      .sorted
   }
 
 
   def combinablePromotions(
                             promotionCode: String,
                             allPromotions: Seq[Promotion]): Seq[PromotionCombo] = {
-    allPromotions.find(_.code == promotionCode) match {
+    val promotions = allPromotions.find(_.code == promotionCode) match {
       case None => allCombinablePromotions(allPromotions) // code isn't in there, just return all promotions
       case Some(promo) =>
         val exclusions = promo.notCombinableWith.toSet
         val filtered = allPromotions.filterNot(promo => exclusions.contains(promo.code))
         allCombinablePromotions(filtered)
     }
+
+    promotions.map(_.movePromotionCodeToHead(promotionCode))
   }
 
   def main(args: Array[String]): Unit = {
